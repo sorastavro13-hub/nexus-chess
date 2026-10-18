@@ -1,0 +1,514 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS CHESS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<style>
+:root {
+  --bg: #101714;
+  --panel: #1b2721;
+  --green: #315c43;
+  --gold: #e5bd62;
+  --text: #f3f0e7;
+  --muted: #a9b6ab;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+header {
+  text-align: center;
+  padding: 24px 12px 14px;
+}
+h1 {
+  margin: 0;
+  letter-spacing: 5px;
+  color: var(--gold);
+}
+header p { color: var(--muted); margin: 8px 0; }
+main {
+  width: min(1100px, 96%);
+  margin: 0 auto 32px;
+  display: grid;
+  grid-template-columns: minmax(0, 600px) minmax(230px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid #35443a;
+  border-radius: 14px;
+  padding: 16px;
+}
+#board {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 4px solid #29382e;
+  border-radius: 4px;
+}
+.square {
+  border: 0;
+  padding: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  cursor: pointer;
+  min-width: 0;
+  user-select: none;
+}
+.light { background: #e8dfc7; }
+.dark { background: #52765c; }
+.square.selected { box-shadow: inset 0 0 0 5px var(--gold); }
+.square.lastmove { background-color: #b7a957; }
+.square.hint::after {
+  content: "";
+  position: absolute;
+  width: 25%;
+  height: 25%;
+  border-radius: 50%;
+  background: #172c20a8;
+}
+.square.capture::after {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border: 5px solid #172c2080;
+  border-radius: 50%;
+}
+.piece {
+  position: relative;
+  z-index: 1;
+  font-family: "DejaVu Sans", "Arial Unicode MS", sans-serif;
+  font-size: clamp(24px, 6vw, 57px);
+  line-height: 1;
+}
+.white-piece {
+  color: #fffdf2;
+  text-shadow: 1px 2px 2px #292929, -1px -1px 1px #292929;
+}
+.black-piece {
+  color: #17231b;
+  text-shadow: 0 1px 1px #f5f0dc;
+}
+.controls {
+  display: grid;
+  gap: 12px;
+}
+label { color: var(--muted); font-size: 14px; }
+select, button {
+  font: inherit;
+  border-radius: 8px;
+  padding: 11px;
+}
+select {
+  width: 100%;
+  background: #101714;
+  color: var(--text);
+  border: 1px solid #506054;
+  margin-top: 5px;
+}
+button.action {
+  background: var(--gold);
+  color: #1c2119;
+  border: 0;
+  font-weight: 700;
+  cursor: pointer;
+}
+button.secondary {
+  background: #293b30;
+  color: var(--text);
+  border: 1px solid #506054;
+  cursor: pointer;
+}
+button:focus-visible, select:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+#status {
+  font-weight: 650;
+  color: var(--gold);
+  min-height: 28px;
+}
+#history {
+  max-height: 260px;
+  overflow-y: auto;
+  font-size: 14px;
+  color: var(--muted);
+}
+.history-row {
+  display: grid;
+  grid-template-columns: 35px 1fr 1fr;
+  gap: 8px;
+  padding: 5px 7px;
+  border-bottom: 1px solid #35443a;
+}
+.history-row:nth-child(even) { background: #243229; }
+h2 { font-size: 17px; margin: 0 0 12px; }
+.small { color: var(--muted); font-size: 13px; line-height: 1.5; }
+@media (max-width: 720px) {
+  main { grid-template-columns: 1fr; width: min(520px, 96%); }
+  .panel { padding: 12px; }
+  header { padding-top: 16px; }
+  h1 { font-size: 25px; }
+  .piece { font-size: clamp(24px, 10vw, 48px); }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>NEXUS CHESS</h1>
+  <p>Think deeper. Play smarter.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <div id="board" aria-label="Chessboard"></div>
+    <p class="small">White moves first. Select a piece to see its legal moves.</p>
+  </section>
+
+  <aside class="panel controls">
+    <h2>Game settings</h2>
+
+    <label for="mode">Game mode
+      <select id="mode">
+        <option value="computer">Play vs Computer</option>
+        <option value="local">Local Two-Player</option>
+      </select>
+    </label>
+
+    <label for="difficulty">Computer difficulty
+      <select id="difficulty">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </label>
+
+    <div>
+      <h2>Game status</h2>
+      <div id="status" aria-live="polite">White to move</div>
+    </div>
+
+    <button class="action" id="restart">New Game</button>
+    <button class="secondary" id="undo">Undo Move</button>
+
+    <div>
+      <h2>Move history</h2>
+      <div id="history">Moves will appear here.</div>
+    </div>
+
+    <p class="small">
+      NEXUS CHESS is a browser-based chess project.
+      The computer uses search and position evaluation.
+      Harder settings may take longer to calculate.
+    </p>
+  </aside>
+</main>
+
+<script>
+const chess = new Chess();
+
+const glyphs = {
+  wk: "♔", wq: "♕", wr: "♖", wb: "♗", wn: "♘", wp: "♙",
+  bk: "♚", bq: "♛", br: "♜", bb: "♝", bn: "♞", bp: "♟"
+};
+
+const values = { p: 100, n: 320, b: 335, r: 500, q: 900, k: 20000 };
+const boardEl = document.getElementById("board");
+const statusEl = document.getElementById("status");
+const historyEl = document.getElementById("history");
+const modeEl = document.getElementById("mode");
+const difficultyEl = document.getElementById("difficulty");
+
+let selected = null;
+let legalTargets = [];
+let lastMove = null;
+
+function render() {
+  boardEl.innerHTML = "";
+  const board = chess.board();
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      const squareName = "abcdefgh"[c] + (8 - r);
+      const square = document.createElement("button");
+
+      square.type = "button";
+      square.className = "square " + ((r + c) % 2 === 0 ? "light" : "dark");
+      square.dataset.square = squareName;
+      square.setAttribute("aria-label",
+        squareName + (piece ? " " + piece.color + " " + piece.type : " empty"));
+
+      if (selected === squareName) square.classList.add("selected");
+      if (lastMove && (lastMove.from === squareName || lastMove.to === squareName)) {
+        square.classList.add("lastmove");
+      }
+
+      if (legalTargets.some(m => m.to === squareName)) {
+        square.classList.add(piece ? "capture" : "hint");
+      }
+
+      if (piece) {
+        const span = document.createElement("span");
+        span.className = "piece " + (piece.color === "w" ? "white-piece" : "black-piece");
+        span.textContent = glyphs[piece.color + piece.type];
+        square.appendChild(span);
+      }
+
+      square.addEventListener("click", () => handleSquare(squareName));
+      boardEl.appendChild(square);
+    }
+  }
+
+  renderHistory();
+  renderStatus();
+}
+
+function renderHistory() {
+  const moves = chess.history();
+  if (!moves.length) {
+    historyEl.textContent = "Moves will appear here.";
+    return;
+  }
+
+  historyEl.innerHTML = "";
+  for (let i = 0; i < moves.length; i += 2) {
+    const row = document.createElement("div");
+    row.className = "history-row";
+
+    const number = document.createElement("span");
+    number.textContent = (Math.floor(i / 2) + 1) + ".";
+
+    const white = document.createElement("span");
+    white.textContent = moves[i];
+
+    const black = document.createElement("span");
+    black.textContent = moves[i + 1] || "";
+
+    row.append(number, white, black);
+    historyEl.appendChild(row);
+  }
+  historyEl.scrollTop = historyEl.scrollHeight;
+}
+
+function renderStatus() {
+  if (chess.in_checkmate()) {
+    statusEl.textContent = "Checkmate! " +
+      (chess.turn() === "w" ? "Black" : "White") + " wins.";
+  } else if (chess.in_stalemate()) {
+    statusEl.textContent = "Draw by stalemate.";
+  } else if (chess.in_draw()) {
+    statusEl.textContent = "Draw.";
+  } else {
+    const side = chess.turn() === "w" ? "White" : "Black";
+    statusEl.textContent = side + (chess.in_check() ? " is in check!" : " to move");
+    if (modeEl.value === "computer" && chess.turn() === "b") {
+      statusEl.textContent = "Computer is thinking...";
+    }
+  }
+}
+
+function handleSquare(square) {
+  if (chess.game_over()) return;
+  if (modeEl.value === "computer" && chess.turn() === "b") return;
+
+  const piece = chess.get(square);
+
+  if (selected && legalTargets.some(m => m.to === square)) {
+    const move = chess.move({
+      from: selected,
+      to: square,
+      promotion: "q"
+    });
+
+    if (move) {
+      lastMove = { from: move.from, to: move.to };
+      selected = null;
+      legalTargets = [];
+      render();
+
+      if (modeEl.value === "computer" && !chess.game_over()) {
+        window.setTimeout(computerMove, 60);
+      }
+      return;
+    }
+  }
+
+  if (piece && piece.color === chess.turn()) {
+    selected = square;
+    legalTargets = chess.moves({ square, verbose: true });
+  } else {
+    selected = null;
+    legalTargets = [];
+  }
+  render();
+}
+
+// Evaluate the position from White's perspective.
+function evaluatePosition() {
+  if (chess.in_checkmate()) return chess.turn() === "w" ? -100000 : 100000;
+  if (chess.in_draw()) return 0;
+
+  let score = 0;
+  const board = chess.board();
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = board[r][c];
+      if (!p) continue;
+
+      const sign = p.color === "w" ? 1 : -1;
+      score += sign * values[p.type];
+
+      // Reward pieces for occupying central squares.
+      const center = 3.5 - (Math.abs(3.5 - r) + Math.abs(3.5 - c)) / 2;
+      if (p.type === "n" || p.type === "b") score += sign * center * 9;
+      if (p.type === "p") {
+        const advancement = p.color === "w" ? 6 - r : r - 1;
+        score += sign * advancement * 5;
+      }
+    }
+  }
+  return score;
+}
+
+function minimax(depth, alpha, beta) {
+  if (depth === 0 || chess.game_over()) return evaluatePosition();
+
+  const moves = chess.moves({ verbose: true });
+  const maximizing = chess.turn() === "w";
+  let best = maximizing ? -Infinity : Infinity;
+
+  // Try captures first to help alpha-beta pruning.
+  moves.sort((a, b) => {
+    const av = (b.captured ? values[b.captured] : 0) -
+               (b.promotion ? values[b.promotion] : 0);
+    const bv = (a.captured ? values[a.captured] : 0) -
+               (a.promotion ? values[a.promotion] : 0);
+    return av - bv;
+  });
+
+  for (const move of moves) {
+    chess.move({
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion || "q"
+    });
+
+    const score = minimax(depth - 1, alpha, beta);
+    chess.undo();
+
+    if (maximizing) {
+      best = Math.max(best, score);
+      alpha = Math.max(alpha, best);
+    } else {
+      best = Math.min(best, score);
+      beta = Math.min(beta, best);
+    }
+
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+
+function computerMove() {
+  if (chess.game_over() || chess.turn() !== "b" ||
+      modeEl.value !== "computer") return;
+
+  statusEl.textContent = "Computer is thinking...";
+  const level = difficultyEl.value;
+  const depth = level === "easy" ? 1 : level === "medium" ? 2 : 3;
+  const moves = chess.moves({ verbose: true });
+  let scoredMoves = [];
+
+  for (const move of moves) {
+    chess.move({
+      from: move.from,
+      to: move.to,
+      promotion: move.promotion || "q"
+    });
+    const score = minimax(depth - 1, -Infinity, Infinity);
+    chess.undo();
+    scoredMoves.push({ move, score });
+  }
+
+  if (!scoredMoves.length) {
+    render();
+    return;
+  }
+
+  // Black tries to minimize White's evaluation.
+  scoredMoves.sort((a, b) => a.score - b.score);
+
+  let chosen;
+  if (level === "easy") {
+    // Add some variety at the easiest level.
+    chosen = scoredMoves[Math.floor(Math.random() *
+      Math.min(3, scoredMoves.length))];
+  } else {
+    chosen = scoredMoves[0];
+  }
+
+  const move = chess.move({
+    from: chosen.move.from,
+    to: chosen.move.to,
+    promotion: chosen.move.promotion || "q"
+  });
+
+  if (move) lastMove = { from: move.from, to: move.to };
+  selected = null;
+  legalTargets = [];
+  render();
+}
+
+function restartGame() {
+  chess.reset();
+  selected = null;
+  legalTargets = [];
+  lastMove = null;
+  render();
+}
+
+function undoMove() {
+  if (modeEl.value === "computer") {
+    // Undo the computer's move and the player's preceding move.
+    chess.undo();
+    if (chess.history().length && chess.turn() === "b") chess.undo();
+  } else {
+    chess.undo();
+  }
+
+  selected = null;
+  legalTargets = [];
+  const history = chess.history({ verbose: true });
+  const last = history[history.length - 1];
+  lastMove = last ? { from: last.from, to: last.to } : null;
+  render();
+}
+
+document.getElementById("restart").addEventListener("click", restartGame);
+document.getElementById("undo").addEventListener("click", undoMove);
+modeEl.addEventListener("change", restartGame);
+difficultyEl.addEventListener("change", () => {
+  if (modeEl.value === "computer" && chess.turn() === "b" &&
+      !chess.game_over()) {
+    window.setTimeout(computerMove, 60);
+  }
+});
+
+render();
+</script>
+</body>
+</html>
