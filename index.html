@@ -1,0 +1,475 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEXUS CHESS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<style>
+:root {
+  --bg: #101510;
+  --panel: #1b231c;
+  --gold: #dfbd70;
+  --light: #e8e0cb;
+  --dark: #668069;
+  --text: #f5f1e7;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+}
+header {
+  padding: 24px 6%;
+  border-bottom: 1px solid #344035;
+}
+.logo {
+  font-size: 25px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+.logo span { color: var(--gold); }
+.tagline {
+  margin-top: 6px;
+  color: #aab5a9;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+main { width: min(1050px, 94%); margin: 35px auto; }
+.eyebrow { color: var(--gold); letter-spacing: 3px; font-size: 11px; }
+h1 { font-size: clamp(28px, 5vw, 42px); margin: 12px 0; }
+.subtitle { color: #aab5a9; line-height: 1.6; margin-bottom: 25px; }
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(230px, .8fr);
+  gap: 20px;
+  align-items: start;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid #354136;
+  border-radius: 12px;
+  padding: 16px;
+}
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 3px solid #394339;
+}
+.square {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  aspect-ratio: 1;
+  cursor: pointer;
+  font-size: clamp(22px, 5.2vw, 53px);
+}
+.light { background: var(--light); }
+.dark { background: var(--dark); }
+.selected { box-shadow: inset 0 0 0 4px var(--gold); }
+.last { background-image: linear-gradient(#dfbd7044, #dfbd7044); }
+.target::after {
+  content: "";
+  position: absolute;
+  width: 23%;
+  height: 23%;
+  background: #18221899;
+  border-radius: 50%;
+}
+.capture::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border: 4px solid #d4a54e;
+  border-radius: 50%;
+}
+.piece { z-index: 1; pointer-events: none; }
+.white-piece { color: white; text-shadow: 1px 1px 2px #444; }
+.black-piece { color: #202720; text-shadow: 0 1px 1px #bbb; }
+.coord {
+  position: absolute;
+  z-index: 2;
+  top: 3px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  pointer-events: none;
+}
+.light .coord { color: #526450; }
+.dark .coord { color: #f5edda; }
+.side { display: grid; gap: 16px; }
+.status {
+  background: #111711;
+  border-left: 3px solid var(--gold);
+  border-radius: 5px;
+  padding: 14px;
+  margin-bottom: 15px;
+}
+.status small {
+  display: block;
+  color: #aab5a9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+label {
+  display: block;
+  color: #aab5a9;
+  font-size: 12px;
+  margin: 15px 0 8px;
+}
+select, button { font: inherit; }
+select {
+  width: 100%;
+  padding: 11px;
+  background: #111711;
+  color: white;
+  border: 1px solid #485449;
+  border-radius: 6px;
+}
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 15px;
+}
+.action {
+  padding: 11px 5px;
+  background: #293329;
+  color: white;
+  border: 1px solid #485449;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.primary {
+  background: var(--gold);
+  color: #172017;
+  font-weight: bold;
+}
+.section-title {
+  color: var(--gold);
+  font-size: 12px;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+.moves {
+  height: 175px;
+  overflow: auto;
+  color: #c3c9bf;
+  font: 13px/1.9 monospace;
+}
+.move-row {
+  display: grid;
+  grid-template-columns: 35px 1fr 1fr;
+  border-bottom: 1px solid #354136;
+}
+.hint { color: #aab5a9; font-size: 12px; line-height: 1.6; }
+footer {
+  text-align: center;
+  padding: 30px 10px;
+  color: #899588;
+  font-size: 11px;
+  letter-spacing: 2px;
+}
+@media(max-width: 700px) {
+  .layout { grid-template-columns: 1fr; }
+  main { margin-top: 24px; }
+  .square { font-size: clamp(23px, 8vw, 46px); }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NEXUS <span>CHESS</span></div>
+  <div class="tagline">THINK BEYOND THE BOARD</div>
+</header>
+
+<main>
+  <div class="eyebrow">YOUR NEXT MOVE STARTS HERE</div>
+  <h1>Every move matters.</h1>
+  <p class="subtitle">Sharpen your strategy. Challenge your mind. Own the board.</p>
+
+  <div class="layout">
+    <section class="panel">
+      <div id="board" class="board"></div>
+      <p class="hint">Select a piece, then a highlighted square. White moves first.</p>
+    </section>
+
+    <aside class="side">
+      <section class="panel">
+        <div class="status">
+          <small>Game status</small>
+          <strong id="status">Loading chess...</strong>
+        </div>
+
+        <label for="mode">PLAY MODE</label>
+        <select id="mode">
+          <option value="ai">Play against computer</option>
+          <option value="local">Two players — same device</option>
+        </select>
+
+        <label for="difficulty">COMPUTER LEVEL</label>
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+
+        <div class="actions">
+          <button class="action primary" id="newGame">New game</button>
+          <button class="action" id="undo">Undo move</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">MOVE HISTORY</div>
+        <div id="moves" class="moves">Your game will appear here.</div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title">THE OBJECTIVE</div>
+        <p class="hint">Capture strategically, protect your king, and aim for checkmate.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<footer>NEXUS CHESS · BUILT FOR STRATEGIC MINDS</footer>
+
+<script>
+if (typeof Chess === "undefined") {
+  document.getElementById("status").textContent =
+    "Chess library unavailable — check your internet connection.";
+} else {
+  startChess();
+}
+
+function startChess() {
+  const game = new Chess();
+  const board = document.getElementById("board");
+  const status = document.getElementById("status");
+  const movesBox = document.getElementById("moves");
+  const mode = document.getElementById("mode");
+  const difficulty = document.getElementById("difficulty");
+
+  const symbols = {
+    wk:"♔", wq:"♕", wr:"♖", wb:"♗", wn:"♘", wp:"♙",
+    bk:"♚", bq:"♛", br:"♜", bb:"♝", bn:"♞", bp:"♟"
+  };
+  const values = {p:100,n:320,b:330,r:500,q:900,k:20000};
+
+  let selected = null;
+  let legalMoves = [];
+  let thinking = false;
+
+  function render() {
+    board.innerHTML = "";
+    const files = "abcdefgh";
+    const history = game.history({verbose:true});
+    const last = history.length ? history[history.length-1] : null;
+
+    for (let r=0; r<8; r++) {
+      for (let c=0; c<8; c++) {
+        const name = files[c] + (8-r);
+        const piece = game.get(name);
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "square " + ((r+c)%2===0 ? "light":"dark");
+        cell.setAttribute("aria-label", name);
+
+        if (selected===name) cell.classList.add("selected");
+        if (last && (last.from===name || last.to===name))
+          cell.classList.add("last");
+
+        const target = legalMoves.find(m=>m.to===name);
+        if (target) cell.classList.add(piece ? "capture":"target");
+
+        if (c===0 || r===7) {
+          const coord = document.createElement("span");
+          coord.className = "coord";
+          coord.textContent = c===0 ? 8-r : files[c];
+          if (r===7) {
+            coord.style.top = "auto";
+            coord.style.bottom = "3px";
+            if (c!==0) {
+              coord.style.left = "auto";
+              coord.style.right = "4px";
+            }
+          }
+          cell.appendChild(coord);
+        }
+
+        if (piece) {
+          const p = document.createElement("span");
+          p.className = "piece " +
+            (piece.color==="w" ? "white-piece":"black-piece");
+          p.textContent = symbols[piece.color+piece.type];
+          cell.appendChild(p);
+        }
+
+        cell.addEventListener("click",()=>clickSquare(name));
+        board.appendChild(cell);
+      }
+    }
+    updateStatus();
+    updateHistory();
+  }
+
+  function updateStatus() {
+    if (game.in_checkmate()) {
+      status.textContent = "Checkmate! " +
+        (game.turn()==="w" ? "Black":"White") + " wins";
+    } else if (game.in_stalemate()) {
+      status.textContent = "Draw by stalemate";
+    } else if (game.in_draw()) {
+      status.textContent = "Draw";
+    } else if (thinking) {
+      status.textContent = "Computer is thinking...";
+    } else if (game.in_check()) {
+      status.textContent = (game.turn()==="w" ? "White":"Black") + " is in check";
+    } else {
+      status.textContent = (game.turn()==="w" ? "White":"Black") + " to move";
+    }
+  }
+
+  function updateHistory() {
+    const h = game.history();
+    movesBox.innerHTML = "";
+    if (!h.length) {
+      movesBox.textContent = "Your game will appear here.";
+      return;
+    }
+    for (let i=0; i<h.length; i+=2) {
+      const row = document.createElement("div");
+      row.className = "move-row";
+      [String(i/2+1)+".",h[i],h[i+1]||""].forEach(t=>{
+        const span = document.createElement("span");
+        span.textContent = t;
+        row.appendChild(span);
+      });
+      movesBox.appendChild(row);
+    }
+    movesBox.scrollTop = movesBox.scrollHeight;
+  }
+
+  function clickSquare(name) {
+    if (thinking || game.game_over()) return;
+    if (mode.value==="ai" && game.turn()==="b") return;
+
+    if (selected) {
+      const move = legalMoves.find(m=>m.to===name);
+      if (move) {
+        playMove(selected,name);
+        return;
+      }
+    }
+
+    const piece = game.get(name);
+    if (piece && piece.color===game.turn()) {
+      selected = name;
+      legalMoves = game.moves({square:name,verbose:true});
+    } else {
+      selected = null;
+      legalMoves = [];
+    }
+    render();
+  }
+
+  function playMove(from,to) {
+    const result = game.move({from,to,promotion:"q"});
+    if (!result) return;
+    selected = null;
+    legalMoves = [];
+    render();
+
+    if (mode.value==="ai" && !game.game_over() && game.turn()==="b") {
+      thinking = true;
+      updateStatus();
+      setTimeout(computerMove,250);
+    }
+  }
+
+  function computerMove() {
+    if (game.game_over()) {
+      thinking = false;
+      render();
+      return;
+    }
+
+    const all = game.moves({verbose:true});
+    const level = difficulty.value;
+
+    function score(m) {
+      let s = Math.random() * (level==="hard" ? 5:45);
+      if (m.captured) s += values[m.captured] * 1.1;
+      if (m.promotion) s += values[m.promotion] || 0;
+
+      game.move({from:m.from,to:m.to,promotion:m.promotion||"q"});
+      if (game.in_checkmate()) s += 100000;
+      else if (game.in_check()) s += level==="easy" ? 10:35;
+      game.undo();
+      return s;
+    }
+
+    const ranked = all.map(m=>({move:m,score:score(m)}))
+      .sort((a,b)=>b.score-a.score);
+
+    let chosen;
+    if (level==="easy") {
+      chosen = ranked[Math.floor(Math.random()*Math.min(5,ranked.length))];
+    } else if (level==="medium" && Math.random()<0.25) {
+      chosen = ranked[Math.floor(Math.random()*Math.min(4,ranked.length))];
+    } else {
+      chosen = ranked[0];
+    }
+
+    const m = chosen.move;
+    game.move({from:m.from,to:m.to,promotion:m.promotion||"q"});
+    thinking = false;
+    render();
+  }
+
+  function reset() {
+    game.reset();
+    selected = null;
+    legalMoves = [];
+    thinking = false;
+    render();
+  }
+
+  document.getElementById("newGame").addEventListener("click",reset);
+
+  document.getElementById("undo").addEventListener("click",()=>{
+    if (thinking) return;
+    if (mode.value==="ai") {
+      if (game.history().length>=2) {
+        game.undo();
+        game.undo();
+      } else if (game.history().length===1) {
+        game.undo();
+      }
+    } else {
+      game.undo();
+    }
+    selected = null;
+    legalMoves = [];
+    render();
+  });
+
+  mode.addEventListener("change",reset);
+  difficulty.addEventListener("change",reset);
+  render();
+}
+</script>
+</body>
+</html>
